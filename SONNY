@@ -1,0 +1,591 @@
+package
+{
+   import com.amanitadesign.steam.FRESteamWorks;
+   import com.amanitadesign.steam.SteamConstants;
+   import com.amanitadesign.steam.SteamEvent;
+   import com.gskinner.utils.SWFBridgeAS3;
+   import flash.desktop.NativeApplication;
+   import flash.display.Loader;
+   import flash.display.MovieClip;
+   import flash.display.StageAlign;
+   import flash.display.StageDisplayState;
+   import flash.display.StageScaleMode;
+   import flash.events.DataEvent;
+   import flash.events.Event;
+   import flash.events.KeyboardEvent;
+   import flash.events.MouseEvent;
+   import flash.geom.Rectangle;
+   import flash.net.SharedObject;
+   import flash.net.URLRequest;
+   import flash.system.Capabilities;
+   import flash.system.LoaderContext;
+   import flash.system.System;
+   import flash.text.TextField;
+   import flash.text.TextFormat;
+   import flash.ui.Keyboard;
+   import flash.utils.getTimer;
+   import flash.utils.setTimeout;
+   
+   public class SONNY extends MovieClip
+   {
+      public var GAMEMASK:MovieClip;
+      
+      public var GAMESELECT:MovieClip;
+      
+      public var WRAPPEREXIT:MovieClip;
+      
+      public var WRAPPERMENU:MovieClip;
+      
+      private var gameLoader:Loader;
+      
+      private var targToLoad:String;
+      
+      private var sharedObject:SharedObject;
+      
+      private var isDebugMode:Boolean = false;
+      
+      private var showClearAchievementsButton:Boolean = false;
+      
+      private var debugText:TextField;
+      
+      private var debugLogInit:Boolean = false;
+      
+      private var swfLocation:String = "";
+      
+      private var lastAchString:String;
+      
+      private var lastAchTime:uint;
+      
+      private var swfBridgeAS3:SWFBridgeAS3;
+      
+      private var canExitApplication:Boolean = false;
+      
+      private var currentWindowedMode:Boolean = false;
+      
+      private var screenRect:Rectangle;
+      
+      private var GAMESCALER:MovieClip;
+      
+      private var gameSwf:MovieClip;
+      
+      private var gameToLoad:String;
+      
+      private var Steamworks:FRESteamWorks;
+      
+      private var steamworksInit:*;
+      
+      private var steamRecheckCount:int = 5;
+      
+      private var steamRecheckTimeMS:int = 1000;
+      
+      public function SONNY()
+      {
+         this.debugText = new TextField();
+         this.screenRect = new Rectangle(0,0,1920,1080);
+         this.GAMESCALER = new MovieClip();
+         super();
+         addFrameScript(0,this.frame1);
+         if(stage)
+         {
+            this.addedToStage(null);
+         }
+         else
+         {
+            addEventListener(Event.ADDED_TO_STAGE,this.addedToStage);
+         }
+      }
+      
+      private function initLog() : void
+      {
+         var _loc1_:TextFormat = null;
+         if(!this.debugLogInit && this.isDebugMode)
+         {
+            _loc1_ = new TextFormat();
+            _loc1_.font = "_sans";
+            _loc1_.size = 12;
+            this.debugText.defaultTextFormat = _loc1_;
+            this.debugText.width = 1200;
+            this.debugText.height = 400;
+            this.debugText.text = "Debug text";
+            this.debugText.selectable = false;
+            this.debugText.mouseEnabled = false;
+            this.debugText.textColor = 16777215;
+            addChild(this.debugText);
+            this.debugLogInit = true;
+         }
+      }
+      
+      private function log(... rest) : void
+      {
+         if(!this.isDebugMode)
+         {
+            return;
+         }
+         this.debugText.appendText("\n log: " + getTimer() + "   " + rest);
+         this.debugText.scrollV = this.debugText.maxScrollV;
+         stage.addChild(this.debugText);
+      }
+      
+      private function onExitGame(param1:*) : void
+      {
+         this.gameLoader.stopAllMovieClips();
+         this.removeCurrentGameLoader();
+      }
+      
+      private function SteamAchievementEvent(param1:DataEvent) : void
+      {
+         this.GetAchivementFromClient(param1.data);
+      }
+      
+      public function GetAchivementFromClient(param1:String) : void
+      {
+         var _loc2_:* = undefined;
+         if(this.lastAchString == param1)
+         {
+            _loc2_ = getTimer() - this.lastAchTime < 10000;
+            if(_loc2_ < 10000)
+            {
+               return;
+            }
+         }
+         this.lastAchString = param1;
+         this.lastAchTime = getTimer();
+         this.setAchievementFunction(this.lastAchString);
+      }
+      
+      public function MessageFromClient(param1:String) : void
+      {
+      }
+      
+      private function startSONNY(param1:MouseEvent) : void
+      {
+         this.GAMESELECT.SONNY1.removeEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.SONNY2.removeEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD1.removeEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD2.removeEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD3.removeEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD4.removeEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD5.removeEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD6.removeEventListener(MouseEvent.CLICK,this.startSONNY);
+         switch(param1.target)
+         {
+            case this.GAMESELECT.SONNY1:
+               this.loadSwf("SONNY1");
+               break;
+            case this.GAMESELECT.MOD1:
+               this.loadSwf("MOD1");
+               break;
+            case this.GAMESELECT.MOD2:
+               this.loadSwf("MOD2");
+               break;
+            case this.GAMESELECT.MOD3:
+               this.loadSwf("MOD3");
+               break;
+            case this.GAMESELECT.MOD4:
+               this.loadSwf("MOD4");
+               break;
+            case this.GAMESELECT.MOD5:
+               this.loadSwf("MOD5");
+               break;
+            case this.GAMESELECT.MOD6:
+               this.loadSwf("MOD6");
+               break;
+            case this.GAMESELECT.SONNY2:
+               this.loadSwf("SONNY2");
+         }
+      }
+      
+      public function HelloFromClient(param1:String) : void
+      {
+      }
+      
+      private function addedToStage(param1:Event) : void
+      {
+         var startWindowed:Boolean;
+         var e:Event = param1;
+         this.swfBridgeAS3 = new SWFBridgeAS3("_sonnyConnect",this);
+         this.sharedObject = SharedObject.getLocal("SONNY_SAVE","/");
+         if(!this.sharedObject.data.saveObject)
+         {
+            this.sharedObject.data.saveObject = {};
+            this.sharedObject.data.globalVolume = 1;
+         }
+         this.sharedObject.data.fullscreen = 1;
+         startWindowed = false;
+         if(!this.sharedObject.data.saveObject.achievements)
+         {
+            this.sharedObject.data.saveObject.achievements = {};
+         }
+         this.sharedObject.data.currentGame = "No game loaded";
+         this.sharedObject.flush();
+         setTimeout(this.initSteam,50);
+         stage.align = StageAlign.TOP_LEFT;
+         stage.scaleMode = StageScaleMode.EXACT_FIT;
+         stage.addEventListener("STEAM_ACHIEVEMENT_EVENT",this.SteamAchievementEvent);
+         stage.addEventListener(KeyboardEvent.KEY_DOWN,function(param1:KeyboardEvent):void
+         {
+            if(param1.keyCode == Keyboard.ESCAPE)
+            {
+               param1.preventDefault();
+               showExitWindow();
+            }
+         });
+         if(this.WRAPPEREXIT.parent)
+         {
+            this.WRAPPEREXIT.parent.removeChild(this.WRAPPEREXIT);
+         }
+         this.WRAPPERMENU.BTN_HOME.addEventListener(MouseEvent.CLICK,function(param1:MouseEvent):void
+         {
+            showExitWindow();
+         });
+         this.WRAPPEREXIT.BTN_EXIT.addEventListener(MouseEvent.CLICK,function(param1:MouseEvent):void
+         {
+            exitWindowConfirm();
+         });
+         if(this.showClearAchievementsButton)
+         {
+            this.WRAPPERMENU.BTN_RESET.addEventListener(MouseEvent.CLICK,function(param1:MouseEvent):void
+            {
+               clearAllAchivements();
+            });
+         }
+         else
+         {
+            this.WRAPPERMENU.removeChild(this.WRAPPERMENU.BTN_RESET);
+         }
+         this.WRAPPEREXIT.BTN_CANCEL.addEventListener(MouseEvent.CLICK,function(param1:MouseEvent):void
+         {
+            exitWindowCancel();
+         });
+         setTimeout(function():void
+         {
+            handleWindowSize(sharedObject.data.fullscreen == 0,screenRect.width,screenRect.height);
+            if(Capabilities.os.indexOf("Mac") >= 0)
+            {
+               NativeApplication.nativeApplication.menu.removeAllItems();
+               swfLocation = "";
+            }
+            else
+            {
+               toggleFullscreen(null);
+            }
+         },60);
+         this.WRAPPERMENU.BTN_FULL.addEventListener(MouseEvent.CLICK,function(param1:MouseEvent):void
+         {
+            toggleFullscreen(null);
+         });
+         stage.addEventListener(Event.ENTER_FRAME,this.wrapperEnterFrame,false,10000);
+         this.showGameSelect();
+      }
+      
+      private function showExitWindow() : void
+      {
+         stage.addChild(this.WRAPPEREXIT);
+         this.WRAPPEREXIT.visible = true;
+         if(this.GAMESELECT.parent)
+         {
+            this.WRAPPEREXIT.gotoAndStop("EXITAPPLICATION");
+            this.canExitApplication = true;
+         }
+         else
+         {
+            this.WRAPPEREXIT.gotoAndStop("EXITGAME");
+            this.canExitApplication = false;
+         }
+         if(this.gameLoader)
+         {
+            this.gameLoader.visible = false;
+         }
+      }
+      
+      private function exitWindowConfirm() : void
+      {
+         if(this.canExitApplication)
+         {
+            NativeApplication.nativeApplication.exit();
+         }
+         else
+         {
+            if(this.WRAPPEREXIT.parent)
+            {
+               this.WRAPPEREXIT.parent.removeChild(this.WRAPPEREXIT);
+            }
+            this.canExitApplication = false;
+            this.showGameSelect();
+            stage.focus = stage;
+            stage.stageFocusRect = false;
+         }
+      }
+      
+      private function exitWindowCancel() : void
+      {
+         if(this.WRAPPEREXIT.parent)
+         {
+            this.WRAPPEREXIT.parent.removeChild(this.WRAPPEREXIT);
+         }
+         stage.focus = stage;
+         stage.stageFocusRect = false;
+         if(this.gameLoader)
+         {
+            this.gameLoader.visible = true;
+         }
+      }
+      
+      private function wrapperEnterFrame(param1:Event) : void
+      {
+         stage.align = StageAlign.TOP_LEFT;
+         stage.scaleMode = StageScaleMode.EXACT_FIT;
+         if(stage.displayState == StageDisplayState.FULL_SCREEN_INTERACTIVE)
+         {
+            if(this.sharedObject.data.fullscreen != 1)
+            {
+               this.sharedObject.data.fullscreen = 1;
+               this.sharedObject.flush();
+               this.WRAPPERMENU.BTN_FULL.gotoAndStop(2);
+               this.toggleFullscreen(null,1);
+               if(this.swfBridgeAS3.connected)
+               {
+                  this.swfBridgeAS3.send("HelloFromWrapper","Hi there from the wrapper!");
+               }
+            }
+         }
+         else if(this.sharedObject.data.fullscreen != 0)
+         {
+            this.sharedObject.data.fullscreen = 0;
+            this.sharedObject.flush();
+            this.WRAPPERMENU.BTN_FULL.gotoAndStop(1);
+            this.toggleFullscreen(null,0);
+         }
+      }
+      
+      private function handleWindowSize(param1:Boolean = true, param2:int = -1, param3:int = -1) : void
+      {
+         if(!this.sharedObject.data.gameQuality)
+         {
+            this.sharedObject.data.gameQuality = 1;
+            this.sharedObject.flush();
+         }
+         this.currentWindowedMode = param1;
+         this.screenRect.width = 1920;
+         this.screenRect.height = 1080;
+         var _loc4_:int = this.screenRect.width;
+         var _loc5_:int = this.screenRect.height;
+         if(param1)
+         {
+            this.WRAPPERMENU.parent.addChild(this.WRAPPERMENU);
+         }
+         else
+         {
+            stage.fullScreenSourceRect = this.screenRect;
+            this.WRAPPERMENU.parent.addChild(this.WRAPPERMENU);
+         }
+      }
+      
+      private function toggleFullscreen(param1:MouseEvent = null, param2:int = -1) : void
+      {
+         if(param2 != -1)
+         {
+            if(param2 == 0)
+            {
+               this.handleWindowSize(true);
+               stage.displayState = StageDisplayState.NORMAL;
+            }
+            else
+            {
+               this.handleWindowSize(false);
+               stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+            }
+         }
+         else if(stage.displayState == StageDisplayState.FULL_SCREEN_INTERACTIVE)
+         {
+            this.handleWindowSize(true);
+            stage.displayState = StageDisplayState.NORMAL;
+         }
+         else
+         {
+            this.handleWindowSize(false);
+            stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+         }
+      }
+      
+      private function showGameSelect(param1:MouseEvent = null) : void
+      {
+         this.GAMESELECT.SONNY1.addEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.SONNY2.addEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD1.addEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD2.addEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD3.addEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD4.addEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD5.addEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.GAMESELECT.MOD6.addEventListener(MouseEvent.CLICK,this.startSONNY);
+         this.removeCurrentGameLoader();
+         addChild(this.GAMESELECT);
+         this.GAMESELECT.visible = true;
+         x = 0;
+         y = 0;
+         scaleX = 1;
+         scaleY = 1;
+      }
+      
+      private function removeCurrentGameLoader() : void
+      {
+         var _loc1_:Number = NaN;
+         if(this.gameLoader)
+         {
+            _loc1_ = System.totalMemory;
+            System.gc();
+            System.gc();
+            this.gameLoader.unloadAndStop(true);
+            if(this.gameLoader.parent)
+            {
+               if(this.gameLoader.parent.hasOwnProperty("removeChild"))
+               {
+                  this.gameLoader.parent.removeChild(this.gameLoader);
+               }
+            }
+            this.gameLoader = null;
+            System.gc();
+            System.gc();
+            this.gameToLoad = null;
+         }
+      }
+      
+      private function loadSwf(param1:String) : void
+      {
+         var loadDir:String = null;
+         var targ:String = param1;
+         this.targToLoad = targ;
+         this.sharedObject.data.currentGame = targ;
+         this.sharedObject.flush();
+         loadDir = this.swfLocation + targ + ".swf";
+         setTimeout(function():void
+         {
+            removeCurrentGameLoader();
+            setTimeout(function():void
+            {
+               var lc:LoaderContext = null;
+               try
+               {
+                  gameToLoad = targ;
+                  gameLoader = new Loader();
+                  gameLoader.name = loadDir;
+                  gameLoader.contentLoaderInfo.addEventListener(Event.COMPLETE,loadGameComplete,false,0,true);
+                  lc = new LoaderContext(false,null,null);
+                  lc.allowCodeImport = true;
+                  GAMESCALER.addChild(gameLoader);
+                  stage.addChild(GAMESCALER);
+                  stage.addChild(GAMEMASK);
+                  gameLoader.load(new URLRequest(loadDir),lc);
+               }
+               catch(error:Error)
+               {
+               }
+            },33);
+         },33);
+      }
+      
+      private function loadGameComplete(param1:Event) : void
+      {
+         this.exitWindowCancel();
+         this.gameLoader.contentLoaderInfo.removeEventListener(Event.COMPLETE,this.loadGameComplete);
+         this.WRAPPERMENU.BTN_HOME.visible = true;
+         var _loc2_:int = 575;
+         var _loc3_:int = 800;
+         this.GAMESCALER.scaleY = 1080 / _loc2_;
+         this.GAMESCALER.scaleX = this.GAMESCALER.scaleY;
+         scaleX = scaleY = this.GAMESCALER.scaleY;
+         x = (1920 - _loc3_ * this.GAMESCALER.scaleX) / 2;
+         this.GAMESCALER.x = x;
+         this.GAMEMASK.width = _loc3_ * this.GAMESCALER.scaleX;
+         this.GAMEMASK.height = _loc2_ * this.GAMESCALER.scaleY;
+         this.GAMEMASK.x = this.GAMESCALER.x;
+         this.GAMEMASK.y = this.GAMESCALER.y;
+         this.GAMESCALER.parent.addChild(this.GAMEMASK);
+         this.GAMESCALER.mask = this.GAMEMASK;
+         stage.addChild(this.WRAPPERMENU);
+         if(stage.displayState == StageDisplayState.FULL_SCREEN_INTERACTIVE)
+         {
+            this.toggleFullscreen(null,1);
+         }
+         else
+         {
+            this.handleWindowSize(true);
+         }
+         removeChild(this.GAMESELECT);
+      }
+      
+      private function initSteam() : void
+      {
+         if(!this.Steamworks)
+         {
+            this.Steamworks = new FRESteamWorks();
+            this.Steamworks.addEventListener(SteamEvent.STEAM_RESPONSE,this.onSteamResponse);
+         }
+         try
+         {
+            this.steamworksInit = this.Steamworks.init();
+            if(this.steamworksInit)
+            {
+               this.offlineSteamAchievements();
+            }
+         }
+         catch(error:Error)
+         {
+            if(steamRecheckCount)
+            {
+               --steamRecheckCount;
+               setTimeout(function():void
+               {
+                  initSteam();
+               },steamRecheckTimeMS);
+            }
+         }
+      }
+      
+      public function onSteamResponse(param1:SteamEvent) : void
+      {
+         switch(param1.req_type)
+         {
+            case SteamConstants.RESPONSE_OnUserStatsStored:
+            case SteamConstants.RESPONSE_OnUserStatsReceived:
+            case SteamConstants.RESPONSE_OnAchievementStored:
+         }
+      }
+      
+      public function setAchievementFunction(param1:*) : void
+      {
+         if(this.Steamworks.isReady)
+         {
+            this.Steamworks.setAchievement(param1);
+            this.Steamworks.storeStats();
+         }
+         this.sharedObject.data.saveObject.achievements[param1] = true;
+      }
+      
+      public function clearAllAchivements() : void
+      {
+         if(this.Steamworks.isReady)
+         {
+            this.Steamworks.resetAllStats(true);
+         }
+      }
+      
+      public function offlineSteamAchievements() : void
+      {
+         var _loc1_:String = null;
+         if(this.Steamworks.isReady)
+         {
+            for(_loc1_ in this.sharedObject.data.saveObject.achievements)
+            {
+               this.setAchievementFunction(_loc1_);
+            }
+         }
+      }
+      
+      internal function frame1() : *
+      {
+         stop();
+      }
+   }
+}
+
